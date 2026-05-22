@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <title>Medical Lung GLB Visualization</title>
+    <link rel="icon" href="data:," />
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #ui {
+        position: absolute; top: 12px; left: 12px;
+        background: rgba(30, 30, 30, 0.85); /* Đổi giao diện UI sang màu tối cho chuyên nghiệp */
+        color: #fff;
+        padding: 14px 18px; border-radius: 8px;
+        font-family: Arial, sans-serif; z-index: 10;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        backdrop-filter: blur(5px);
+      }
+      input { width: 220px; cursor: pointer; accent-color: #d93838; }
+    </style>
+  </head>
+
+  <body>
+    <div id="ui">
+      <div style="margin-bottom: 8px; font-size: 16px;"><b>SpO₂ (Nồng độ Oxy):</b> <span id="spo2Val" style="font-weight:bold; color:#ff6b6b;">97</span>%</div>
+      <input id="spo2" type="range" min="70" max="100" value="97" />
+    </div>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+    // ===== Scene =====
+    const scene = new THREE.Scene();
+    // Thay nền bằng màu xám studio tối để mô hình y tế nổi bật tách biệt
+    scene.background = new THREE.Color(0x1a1a1a); 
+
+    // ===== Camera =====
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 5000);
+    camera.position.set(0, 1, 3);
+
+    // ===== Renderer =====
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    
+    // Kích hoạt Tone Mapping chuẩn điện ảnh / y tế
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    
+    document.body.appendChild(renderer.domElement);
+
+    // ===== Ánh sáng phòng mổ (Surgical Lighting) =====
+    // Ánh sáng môi trường dịu nhẹ
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    // Đèn mổ chính chiếu thẳng từ trên trước mặt
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    mainLight.position.set(2, 6, 4);
+    scene.add(mainLight);
+
+    // Đèn phụ xóa bóng góc khuất
+    const fillLight = new THREE.DirectionalLight(0x90b0ff, 0.6); // Hơi ám xanh y tế
+    fillLight.position.set(-4, 2, -2);
+    scene.add(fillLight);
+
+    // Đèn viền từ phía sau để tạo độ khối 3D sắc nét ở rìa mô hình
+    const rimLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    rimLight.position.set(0, 4, -5);
+    scene.add(rimLight);
+
+    // ===== Controls =====
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // ===== Mô phỏng dải màu y học bằng nội suy tuyến tính (Linear Interpolation) =====
+    function getMedicalColor(spo2) {
+      const color = new THREE.Color();
+      
+      // Định nghĩa các mốc màu sinh học:
+      const colorHigh = new THREE.Color(0xce2d2d); // Đỏ tươi mọng oxy (SpO2 = 100)
+      const colorMid = new THREE.Color(0x872337);  // Đỏ sẫm/Màu mận (SpO2 = 92)
+      const colorLow = new THREE.Color(0x361d32);  // Tím tái/Xanh đen thiếu oxy (SpO2 = 70)
+
+      if (spo2 >= 92) {
+        // Nội suy mượt mà từ 92% đến 100%
+        const t = (spo2 - 92) / (100 - 92);
+        color.lerpColors(colorMid, colorHigh, t);
+      } else {
+        // Nội suy mượt mà từ 70% đến 92%
+        const t = (spo2 - 70) / (92 - 70);
+        color.lerpColors(colorLow, colorMid, t);
+      }
+      return color;
+    }
+
+    let lungMeshes = [];
+
+    function updateColorBySpO2(spo2) {
+      const targetColor = getMedicalColor(spo2);
+      lungMeshes.forEach((m) => {
+        m.material.color.copy(targetColor);
+      });
+    }
+
+    const loader = new GLTFLoader();
+
+    loader.load(
+      "./lungs_heart_reoriented_NIH3D.glb",
+      (gltf) => {
+        const model = gltf.scene;
+        scene.add(model);
+
+        model.traverse((obj) => {
+          if (obj.isMesh) {
+            // Ép tính toán lại phản xạ bề mặt
+            obj.geometry.computeVertexNormals();
+
+            // SỬ DỤNG CHẤT LIỆU MÔ SINH HỌC CAO CẤP
+            obj.material = new THREE.MeshPhysicalMaterial({
+              color: getMedicalColor(parseInt(document.getElementById("spo2").value)),
+              roughness: 0.5,           // Độ nhám tự nhiên của bề mặt tạng
+              metalness: 0.0,           // Không có tính chất kim loại
+              clearcoat: 0.7,           // LỚP MÀNG ẨM: Tạo độ bóng như mô ướt
+              clearcoatRoughness: 0.1,  // Độ bóng của màng rất sắc nét
+              reflectivity: 0.5,
+              side: THREE.DoubleSide
+            });
+
+            lungMeshes.push(obj);
+          }
+        });
+
+        // ===== Auto fit =====
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        
+        box.getSize(size);
+        box.getCenter(center);
+        model.position.sub(center);
+
+        const maxDim = Math.max(size.x, size.y, size.z);
+        camera.position.z = maxDim * 1.5;
+        camera.position.y = maxDim * 0.15;
+        
+        controls.target.set(0, 0, 0);
+        controls.update();
+
+        console.log("Đã tải mô hình chuẩn y tế thành công!");
+      },
+      undefined,
+      (err) => {
+        console.error(err);
+      }
+    );
+
+    // ===== Slider =====
+    const slider = document.getElementById("spo2");
+    const label = document.getElementById("spo2Val");
+
+    slider.addEventListener("input", () => {
+      const v = parseInt(slider.value);
+      label.textContent = v;
+      
+      // Đổi màu chữ UI tương ứng cho sinh động
+      if (v >= 95) label.style.color = "#6be0a2";
+      else if (v >= 90) label.style.color = "#ffd460";
+      else label.style.color = "#ff6b6b";
+
+      updateColorBySpO2(v);
+    });
+
+    // ===== Animate =====
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // ===== Resize =====
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+    </script>
+  </body>
+</html>

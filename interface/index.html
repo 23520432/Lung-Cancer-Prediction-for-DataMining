@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Chẩn đoán Nguy cơ Ung thư Phổi</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        /* Thêm một chút CSS trực tiếp để chia 2 cột cho Form nhập liệu */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-bottom: 15px;
+        }
+        /* Tùy chỉnh thanh cuộn cho đẹp */
+        .form-grid::-webkit-scrollbar { width: 6px; }
+        .form-grid::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        .full-width { grid-column: span 2; }
+        .section-divider {
+            grid-column: span 2;
+            font-size: 14px;
+            font-weight: bold;
+            color: #0f4c81;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Hệ thống Phân tích & Dự đoán Ung thư Phổi</h1>
+            <p>Ứng dụng AI phân tích rủi ro dựa trên dữ liệu lâm sàng và lối sống</p>
+        </header>
+
+        <main class="dashboard">    
+            <section class="form-section">
+                <h2>Thông tin bệnh nhân (29 Đặc trưng)</h2>
+                <form id="predictionForm">
+                    
+                    <div class="form-grid">
+                        
+                        <div class="section-divider">Cá nhân & Thể chất</div>
+                        <div class="input-group"><label for="age">Độ tuổi:</label><input type="number" id="age" value="55" required></div>
+                        <div class="input-group"><label for="gender">Giới tính:</label>
+                            <select id="gender"><option value="1">Nam</option><option value="0">Nữ</option></select></div>
+                        <div class="input-group"><label for="bmi">Chỉ số BMI:</label><input type="number" id="bmi" step="0.1" value="22.5"></div>
+                        <div class="input-group"><label for="education_years">Số năm học vấn:</label><input type="number" id="education_years" value="12"></div>
+                        <div class="input-group"><label for="income_level">Mức thu nhập:</label>
+                            <select id="income_level"><option value="1">Thấp</option><option value="2" selected>Trung bình</option><option value="3">Cao</option></select></div>
+
+                        <div class="section-divider">Lối sống & Môi trường</div>
+                        <div class="input-group"><label for="smoker">Đang hút thuốc:</label>
+                            <select id="smoker"><option value="1">Có</option><option value="0">Không</option></select></div>
+                        <div class="input-group"><label for="smoking_years">Số năm hút thuốc:</label><input type="number" id="smoking_years" value="20"></div>
+                        <div class="input-group"><label for="cigarettes_per_day">Số điếu/ngày:</label><input type="number" id="cigarettes_per_day" value="15"></div>
+                        <div class="input-group"><label for="pack_years">Thâm niên (Pack Years):</label><input type="number" id="pack_years" step="0.1" value="30.5" required></div>
+                        <div class="input-group"><label for="passive_smoking">Hút thuốc thụ động:</label>
+                            <select id="passive_smoking"><option value="0">Không</option><option value="1">Có</option></select></div>
+                        <div class="input-group"><label for="alcohol_units_per_week">Lượng rượu/tuần:</label><input type="number" id="alcohol_units_per_week" value="5"></div>
+                        <div class="input-group"><label for="exercise_hours_per_week">Giờ thể dục/tuần:</label><input type="number" id="exercise_hours_per_week" step="0.1" value="2.5"></div>
+                        <div class="input-group"><label for="diet_quality">Chất lượng ăn uống:</label>
+                            <select id="diet_quality"><option value="1">Kém</option><option value="2" selected>Trung bình</option><option value="3">Tốt</option></select></div>
+                        <div class="input-group"><label for="air_pollution_index">Chỉ số ô nhiễm khí:</label><input type="number" id="air_pollution_index" value="60" required></div>
+                        <div class="input-group"><label for="occupational_exposure">Phơi nhiễm nghề nghiệp:</label>
+                            <select id="occupational_exposure"><option value="0">Không</option><option value="1">Có</option></select></div>
+                        <div class="input-group"><label for="radon_exposure">Phơi nhiễm Radon:</label>
+                            <select id="radon_exposure"><option value="0">Không</option><option value="1">Có</option></select></div>
+
+                        <div class="section-divider">Tiền sử bệnh & Triệu chứng</div>
+                        <div class="input-group"><label for="family_history_cancer">Tiền sử gia đình (Ung thư):</label>
+                            <select id="family_history_cancer"><option value="0">Không</option><option value="1">Có</option></select></div>
+                        <div class="input-group"><label for="previous_tb">Tiền sử Lao phổi (TB):</label>
+                            <select id="previous_tb"><option value="0">Không</option><option value="1">Có</option></select></div>
+                        <div class="input-group"><label for="asthma">Hen suyễn:</label>
+                            <select id="asthma"><option value="0">Không</option><option value="1">Có</option></select></div>
+                        <div class="input-group"><label for="copd">Bệnh phổi tắc nghẽn (COPD):</label>
+                            <select id="copd"><option value="0">Không</option><option value="1">Có</option></select></div>
+                        <div class="input-group"><label for="chronic_cough">Ho mãn tính:</label>
+                            <select id="chronic_cough"><option value="0">Không</option><option value="1" selected>Có</option></select></div>
+                        <div class="input-group"><label for="chest_pain">Đau ngực:</label>
+                            <select id="chest_pain"><option value="0">Không</option><option value="1">Có</option></select></div>
+                        <div class="input-group"><label for="shortness_of_breath">Khó thở:</label>
+                            <select id="shortness_of_breath"><option value="0">Không</option><option value="1">Có</option></select></div>
+                        <div class="input-group"><label for="fatigue">Mệt mỏi kéo dài:</label>
+                            <select id="fatigue"><option value="0">Không</option><option value="1">Có</option></select></div>
+
+                        <div class="section-divider">Chỉ số xét nghiệm lâm sàng</div>
+                        <div class="input-group"><label for="fev1_x10">Chỉ số thở FEV1 (x10):</label><input type="number" id="fev1_x10" step="0.1" value="25.5"></div>
+                        <div class="input-group"><label for="crp_level">Độ viêm CRP (mg/L):</label><input type="number" id="crp_level" step="0.1" value="3.2"></div>
+                        <div class="input-group"><label for="xray_abnormal">X-Quang phổi bất thường:</label>
+                            <select id="xray_abnormal"><option value="0">Không</option><option value="1">Có</option></select></div>
+                        <div class="input-group"><label for="healthcare_access">Tiếp cận y tế:</label>
+                            <select id="healthcare_access"><option value="1">Kém</option><option value="2">TB</option><option value="3" selected>Tốt</option></select></div>
+
+                        <div class="input-group spo2-group full-width">
+                            <label for="spo2">
+                                SpO₂ (Nồng độ Oxy máu): <span id="spo2Val" style="font-weight:bold; color:#6be0a2;">97</span>%
+                            </label>
+                            <input id="spo2" type="range" min="70" max="100" value="97" />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Chạy mô hình chẩn đoán</button>
+                </form>
+            </section>
+
+            <section class="result-section">
+                <h2>Kết quả phân tích</h2>
+                
+                <div id="canvas-container" class="model-container">
+                    </div>
+
+                <div class="summary-info" id="summaryInfo">
+                    <p><i>Vui lòng nhập thông tin và bấm Chẩn đoán...</i></p>
+                </div>
+
+                <div class="prediction-box" id="predictionResult">
+                    <h3>Trạng thái: Đang chờ...</h3>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

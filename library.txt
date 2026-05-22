@@ -1,0 +1,13 @@
+python -m venv venv
+.\venv\Scripts\Activate
+pip install deslib
+pip install pandas  xgboost lightgbm shap  
+pip install matplotlib
+pip install seaborn
+pip install deslib shap
+pip install ipykernel
+python -m ipykernel install --user --name=venv --display-name "Python (venv)"
+pip install imbalanced-learn
+pip install plotly
+pip install scikit-learn==1.7.2
+pip install flask flask-cors joblib

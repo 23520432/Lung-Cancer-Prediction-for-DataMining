@@ -1,0 +1,22 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VSCode
+.vscode/
+
+# Models
+models/*.pkl
+
+# Dataset lớn
+data/raw/
+
+# OS
+.DS_Store
+Thumbs.db
