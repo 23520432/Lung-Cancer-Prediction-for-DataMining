@@ -13,4 +13,4 @@ pip install scikit-learn==1.7.2
 pip install flask flask-cors joblib
 pip install --upgrade nbformat
 -- chạy lệnh
-python -u "c:\Users\LENOVO\Lung-Cancer-Prediction-for-DataMining\app.py" 
+python -u app.py

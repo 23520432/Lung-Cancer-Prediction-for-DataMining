@@ -71,7 +71,8 @@ document.getElementById("btnProcessCSV").addEventListener("click", function () {
     complete: async function (results) {
       const data = results.data;
       masterData = [];
-      const limit = Math.min(data.length, 200);
+      //const limit = Math.min(data.length, 200);
+      const limit = data.length;
       document.getElementById("toolbar").style.display = "flex";
 
       for (let i = 0; i < limit; i++) {
@@ -115,6 +116,7 @@ document.getElementById("btnProcessCSV").addEventListener("click", function () {
             data: patientData,
             prediction: result,
           });
+          progressText.innerText = `Đang phân tích: ${i + 1} / ${limit} ca bệnh...`;
         } catch (err) {}
       }
       progressText.innerText = "Hoàn tất!";
@@ -145,7 +147,7 @@ function renderTable(dataArray) {
       riskText = `<span style="color: #2e7d32; font-weight: bold;">Nguy cơ Thấp (${res.risk_probability}%)</span>`;
 
     tableHTML += `
-            <tr onclick="loadPatientToForm(${patient.originalId - 1})">
+            <tr onclick="loadPatientToForm(${patient.originalId})">
                 <td><b>BN-${patient.originalId}</b></td><td>${d.age}</td><td>${d.gender === 1 ? "Nam" : "Nữ"}</td>
                 <td>${d.pack_years}</td><td>${d.chronic_cough === 1 ? "Có" : "Không"}</td><td>${d.oxygen_saturation}%</td>
                 <td>${riskText}</td><td><button style="padding: 5px 12px; cursor: pointer; background: #0f4c81; color: white; border: none; border-radius: 4px;">Soi 3D</button></td>
@@ -154,19 +156,65 @@ function renderTable(dataArray) {
   tbody.innerHTML = tableHTML;
 }
 
-document.getElementById("filterRisk").addEventListener("change", () => {
-  const val = document.getElementById("filterRisk").value;
-  currentDisplayData = masterData.filter(
-    (p) => val === "ALL" || p.prediction.risk_level === val,
-  );
-  if (currentSortCol)
+// ==========================================
+// HỆ THỐNG LỌC TỔNG HỢP (TÌM KIẾM + NGUY CƠ)
+// ==========================================
+const filterRiskEl = document.getElementById("filterRisk");
+const searchEl = document.getElementById("globalSearch");
+
+function applyUnifiedFilters() {
+  const riskVal = filterRiskEl.value;
+  const searchVal = searchEl.value.toLowerCase().trim();
+
+  currentDisplayData = masterData.filter((p) => {
+    // 1. Kiểm tra điều kiện Nguy cơ
+    const matchRisk = riskVal === "ALL" || p.prediction.risk_level === riskVal;
+
+    // 2. Kiểm tra điều kiện Tìm kiếm đa năng
+    let matchSearch = false;
+    if (!searchVal) {
+      matchSearch = true; // Nếu ô tìm kiếm trống thì cho qua hết
+    } else {
+      // Dịch các con số phân loại ra chữ để tìm kiếm thân thiện hơn
+      const genderStr = p.data.gender === 1 ? "nam" : "nữ";
+      const coughStr = p.data.chronic_cough === 1 ? "có" : "không";
+      let riskStr = "thấp";
+      if (p.prediction.risk_level === "HIGH") riskStr = "cao";
+      else if (p.prediction.risk_level === "WARNING") riskStr = "cảnh báo";
+
+      // Gộp TOÀN BỘ 29 thuộc tính + ID + Chữ dịch vào thành một đoạn text khổng lồ
+      const allRawValues = Object.values(p.data).join(" ");
+      const searchString =
+        `bn-${p.originalId} ${genderStr} ${coughStr} ${riskStr} ${allRawValues}`.toLowerCase();
+
+      // Nếu đoạn text chứa từ khóa gõ vào -> Hợp lệ
+      if (searchString.includes(searchVal)) {
+        matchSearch = true;
+      }
+    }
+
+    // Bệnh nhân phải thỏa mãn CẢ HAI điều kiện mới được hiện lên bảng
+    return matchRisk && matchSearch;
+  });
+
+  // Nếu đang bấm sắp xếp cột thì vẫn phải giữ nguyên thứ tự sắp xếp
+  if (currentSortCol) {
     currentDisplayData = sortPatientArray(
       currentDisplayData,
       currentSortCol,
       sortAscending,
     );
+  }
+
+  // Vẽ lại bảng
   renderTable(currentDisplayData);
-});
+}
+
+// Bắt sự kiện khi chọn Nguy cơ
+filterRiskEl.addEventListener("change", applyUnifiedFilters);
+
+// Bắt sự kiện ngay khi người dùng đang gõ phím (Real-time search)
+searchEl.addEventListener("input", applyUnifiedFilters);
 
 document.querySelectorAll("th.sortable").forEach((th) => {
   th.addEventListener("click", () => {
@@ -190,8 +238,9 @@ document.querySelectorAll("th.sortable").forEach((th) => {
 });
 
 // 5. CHUYỂN DỮ LIỆU SANG FORM
-window.loadPatientToForm = function (index) {
-  const patient = masterData[index];
+window.loadPatientToForm = function (targetId) {
+  // Dùng thuật toán .find() để quét đúng ID gốc, bất chấp vị trí trong mảng
+  const patient = masterData.find((p) => p.originalId === targetId);
   if (!patient) return;
   const d = patient.data;
   const res = patient.prediction;
