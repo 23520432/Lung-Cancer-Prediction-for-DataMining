@@ -23,13 +23,29 @@ model = joblib.load('models/des_model.pkl')
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Lấy dữ liệu 29 thuộc tính từ giao diện gửi lên
+        # 1. Lấy dữ liệu từ giao diện web gửi lên
         data = request.json
-        
-        # Chuyển đổi dữ liệu thành DataFrame
         df_input = pd.DataFrame([data])
         
-        # Danh sách các cột cần chuẩn hóa (Giống hệt file 02_Preprocessing)
+        # =========================================================
+        # GIẢI PHÁP TƯỜNG MINH: Khai báo chính xác thứ tự 29 cột 
+        # Khớp 100% với file train_processed.csv
+        # =========================================================
+        expected_cols = [
+            'age', 'gender', 'education_years', 'income_level', 'smoker',
+            'smoking_years', 'cigarettes_per_day', 'pack_years', 'passive_smoking',
+            'air_pollution_index', 'occupational_exposure', 'radon_exposure',
+            'family_history_cancer', 'copd', 'asthma', 'previous_tb',
+            'chronic_cough', 'chest_pain', 'shortness_of_breath', 'fatigue',
+            'bmi', 'oxygen_saturation', 'fev1_x10', 'crp_level', 'xray_abnormal',
+            'exercise_hours_per_week', 'diet_quality', 'alcohol_units_per_week',
+            'healthcare_access'
+        ]
+        
+        # Ép DataFrame phải sắp xếp cột theo đúng danh sách trên
+        df_input = df_input[expected_cols]
+        
+        # 2. CHỈ CHUẨN HÓA 15 CỘT LIÊN TỤC (Giữ nguyên 14 cột nhị phân 0/1)
         continuous_cols = [
             'age', 'education_years', 'income_level', 'smoking_years', 'cigarettes_per_day', 
             'pack_years', 'air_pollution_index', 'bmi', 'oxygen_saturation', 
@@ -37,18 +53,26 @@ def predict():
             'alcohol_units_per_week', 'healthcare_access'
         ]
         
-        # Áp dụng chuẩn hóa (Scaling)
+        # Transform 15 cột này và dán ngược lại vào DataFrame
         df_input[continuous_cols] = scaler.transform(df_input[continuous_cols])
         
-        # Dự đoán bằng mô hình DES
-        prediction = model.predict(df_input)
+        # 3. Chạy mô hình dự đoán
         probability = model.predict_proba(df_input)[:, 1]
+        prob_value = round(float(probability[0]) * 100, 2)
         
-        # Trả kết quả về cho Frontend
+        # Tự động phân loại 3 mức độ (Traffic Light System)
+        if prob_value < 40:
+            risk_level = 'LOW'
+        elif prob_value < 70:
+            risk_level = 'WARNING'
+        else:
+            risk_level = 'HIGH'
+        
+        # Trả kết quả về
         return jsonify({
             'status': 'success',
-            'is_high_risk': bool(prediction[0]),
-            'risk_probability': round(float(probability[0]) * 100, 2)
+            'risk_level': risk_level,
+            'risk_probability': prob_value
         })
         
     except Exception as e:
