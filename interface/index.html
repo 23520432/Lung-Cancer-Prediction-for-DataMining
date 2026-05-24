@@ -35,12 +35,14 @@
                 <h3>Tải lên tệp hồ sơ lâm sàng (CSV gốc)</h3>
                 <p style="margin-bottom: 15px; font-size: 14px; color: #666;">Lưu ý: Dùng tệp chưa qua chuẩn hóa (Raw/Cleaned). Hệ thống tự động xử lý giá trị trống (NaN).</p>
                 <input type="file" id="csvFileInput" accept=".csv">
-                <button class="btn-submit" id="btnProcessCSV" style="width: auto; padding: 10px 30px;">Xử lý 200 Hồ sơ đầu tiên</button>
+                <button class="btn-submit" id="btnProcessCSV" style="width: auto; padding: 10px 30px;">Xử lý file csv</button>
                 <p id="progressText" style="margin-top: 10px; color: #0f4c81; font-weight: bold;"></p>
             </div>
 
-            <div id="toolbar" style="display: none; justify-content: flex-end; margin-bottom: 15px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <select id="filterRisk" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; font-weight: bold; color: #0f4c81;">
+            <div id="toolbar" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 15px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <input type="text" id="globalSearch" placeholder="🔍 Tìm kiếm mọi thông tin (Tuổi, Giới tính, SpO2...)" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 350px; outline: none; font-size: 14px; font-family: inherit;">
+                
+                <select id="filterRisk" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; font-weight: bold; color: #0f4c81; cursor: pointer;">
                     <option value="ALL">🔍 Hiển thị: Tất cả bệnh nhân</option>
                     <option value="HIGH">🔴 Nguy cơ Cao (≥70%)</option>
                     <option value="WARNING">🟠 Cảnh báo (40% - 69%)</option>
