@@ -1,34 +1,424 @@
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-body { background-color: #f0f4f8; color: #333; }
-.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-header { text-align: center; margin-bottom: 30px; padding: 20px; background-color: #0f4c81; color: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-section { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-h2 { margin-bottom: 20px; color: #0f4c81; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-.input-group { margin-bottom: 15px; }
-label { display: block; margin-bottom: 5px; font-weight: 600; }
-input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
-
-/* Style cho thanh trượt SpO2 */
-.spo2-group { background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #d93838; }
-input[type="range"] { width: 100%; cursor: pointer; accent-color: #d93838; margin-top: 10px; }
-
-.btn-submit { width: 100%; padding: 15px; background-color: #2ecc71; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.3s; margin-top: 10px; }
-.btn-submit:hover { background-color: #27ae60; }
-
-/* Kích thước và định dạng vùng chứa Three.js */
-.model-container { 
-    width: 100%; 
-    height: 400px; /* Chiều cao cố định cho khung 3D */
-    background-color: #1a1a1a; /* Nền xám studio tối */
-    border-radius: 8px; 
-    margin-bottom: 20px; 
-    overflow: hidden; 
-    position: relative;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+/* ==========================================================================
+   1. RESET & LAYOUT HỆ THỐNG (CORE STYLES)
+   ========================================================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-.summary-info { background-color: #f8f9fa; padding: 15px; border-left: 4px solid #0f4c81; margin-bottom: 20px; border-radius: 0 4px 4px 0; }
-.prediction-box { padding: 20px; border-radius: 8px; text-align: center; background-color: #eee; transition: all 0.3s; }
-.danger { background-color: #ffebee; color: #c62828; border: 2px solid #ef9a9a; }
-.safe { background-color: #e8f5e9; color: #2e7d32; border: 2px solid #a5d6a7; }
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f4f6f9;
+  color: #333;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+header {
+  background: linear-gradient(135deg, #0f4c81 0%, #1d6fa5 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 15px rgba(15, 76, 129, 0.2);
+}
+
+header h1 {
+  font-size: 28px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+header p {
+  font-size: 15px;
+  opacity: 0.9;
+}
+
+/* Dashboard Grid Component */
+.dashboard {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 25px;
+  align-items: start;
+}
+
+.form-section,
+.result-section {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  min-height: 650px;
+}
+
+.form-section h2,
+.result-section h2 {
+  color: #0f4c81;
+  font-size: 20px;
+  margin-bottom: 20px;
+  border-left: 4px solid #0f4c81;
+  padding-left: 10px;
+}
+
+/* ==========================================================================
+   2. THANH ĐIỀU HƯỚNG TABS & KHU VỰC UPLOAD
+   ========================================================================== */
+.tabs {
+  display: flex;
+  margin-bottom: 25px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 16px;
+  border: none;
+  background: #f8f9fa;
+  font-size: 16px;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+  background: #edf1f5;
+  color: #0f4c81;
+}
+
+.tab-btn.active {
+  background: #0f4c81;
+  color: white;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Upload Section Component */
+.upload-section {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  text-align: center;
+  border: 2px dashed #0f4c81;
+  transition: background 0.3s;
+}
+
+.upload-section:hover {
+  background: #fdfeff;
+}
+
+.upload-section h3 {
+  color: #0f4c81;
+  margin-bottom: 8px;
+}
+
+.upload-section input[type="file"] {
+  margin: 15px 0;
+  display: inline-block;
+}
+
+/* Toolbar Controls */
+#toolbar {
+  display: none;
+  justify-content: flex-end;
+  margin-bottom: 15px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* ==========================================================================
+   3. BẢNG DỮ LIỆU LÂM SÀNG HÀNG LOẠT (DATA TABLE)
+   ========================================================================== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th,
+td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid #eeeeee;
+  font-size: 14px;
+}
+
+th {
+  background-color: #0f4c81;
+  color: white;
+  font-weight: 600;
+  user-select: none;
+}
+
+tr:hover {
+  background-color: #f7f9fc;
+  cursor: pointer;
+}
+
+/* Click-to-Sort Columns */
+th.sortable {
+  cursor: pointer;
+  transition: background 0.2s ease;
+  position: relative;
+  padding-right: 25px;
+}
+
+th.sortable:hover {
+  background-color: #0a355c;
+}
+
+.sort-icon {
+  font-size: 12px;
+  margin-left: 5px;
+  color: #88bbed;
+}
+
+table button {
+  padding: 6px 14px;
+  cursor: pointer;
+  background: #0f4c81;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+table button:hover {
+  background: #1565c0;
+}
+
+/* ==========================================================================
+   4. FORM NHẬP LIỆU CHI TIẾT (FORM COMPONENTS)
+   ========================================================================== */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-bottom: 20px;
+}
+
+/* Khối cuộn tùy biến */
+.form-grid::-webkit-scrollbar {
+  width: 6px;
+}
+.form-grid::-webkit-scrollbar-thumb {
+  background: #ccd1d9;
+  border-radius: 4px;
+}
+
+.full-width {
+  grid-column: span 2;
+}
+
+.section-divider {
+  grid-column: span 2;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f4c81;
+  border-bottom: 2px solid #edf1f5;
+  padding-bottom: 4px;
+  margin-top: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.input-group input[type="number"],
+.input-group select {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #334155;
+  outline: none;
+  background-color: #f8fafc;
+  transition:
+    border 0.2s,
+    background 0.2s;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+  border-color: #0f4c81;
+  background-color: #fff;
+}
+
+/* SpO2 Special Container */
+.spo2-group {
+  background: #f8fafc;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.spo2-group input[type="range"] {
+  width: 100%;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+/* Action Button */
+.btn-submit {
+  width: 100%;
+  padding: 14px;
+  background: #0f4c81;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(15, 76, 129, 0.15);
+  transition:
+    background 0.2s,
+    transform 0.1s;
+}
+
+.btn-submit:hover {
+  background: #145994;
+}
+
+.btn-submit:active {
+  transform: scale(0.99);
+}
+
+/* ==========================================================================
+   5. KHỐI HIỂN THỊ KẾT QUẢ VÀ ĐỒ HỌA BIOMEDICAL (OUTPUTS)
+   ========================================================================== */
+.model-container {
+  width: 100%;
+  height: 280px;
+  background-color: #1a1a2e;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.summary-info {
+  background: #f8fafc;
+  border-left: 4px solid #0f4c81;
+  padding: 18px;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 20px;
+  font-size: 14px;
+  border: 1px solid #e2e8f0;
+  border-left-width: 4px;
+}
+
+/* Thẻ cảnh báo động AI */
+.prediction-box {
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+}
+
+.prediction-box h2,
+.prediction-box h3 {
+  margin-bottom: 5px;
+  font-size: 18px;
+}
+
+.prediction-box p {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Hệ thống màu đèn giao thông (Traffic Lights) */
+.prediction-box.safe {
+  background-color: #e8f5e9;
+  border: 2px solid #2e7d32;
+  color: #1b5e20;
+}
+
+.prediction-box.warning {
+  background-color: #fff3e0;
+  border: 2px solid #f57c00;
+  color: #e65100;
+}
+
+.prediction-box.danger {
+  background-color: #ffebee;
+  border: 2px solid #c62828;
+  color: #b71c1c;
+}
+
+/* TÍNH NĂNG PHÓNG TO 3D (FULLSCREEN) */
+#canvas-container {
+  position: relative; /* Để nút bấm có thể neo vào góc */
+}
+
+.btn-fullscreen {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px); /* Hiệu ứng kính mờ*/
+}
+
+.btn-fullscreen:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Khi khung 3D phóng to toàn màn hình, xóa bỏ bo góc */
+.model-container:fullscreen {
+  border-radius: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Sửa lỗi lệch tâm 3D khi thoát Fullscreen */
+#canvas-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
