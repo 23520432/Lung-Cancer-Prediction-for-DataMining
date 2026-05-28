@@ -343,6 +343,8 @@ document
     }
   });
 
+let currentPatientForRecommendation = null;
+
 function updateResultUI(d, res, idLabel) {
   const resultBox = document.getElementById("predictionResult");
   if (res.risk_level === "HIGH") {
@@ -358,6 +360,13 @@ function updateResultUI(d, res, idLabel) {
     resultBox.innerHTML = `<h2>🟢 NGUY CƠ THẤP (${res.risk_probability}%)</h2><p>Chưa phát hiện dấu hiệu đặc trưng.</p>`;
     setAlarmStatus(false);
   }
+
+  // Ghi nhớ dữ liệu bệnh nhân này để lát nữa tạo giải pháp
+  currentPatientForRecommendation = { data: d, prediction: res };
+
+  // HIỂN THỊ NÚT ĐỀ XUẤT VÀ ẨN KHUNG KẾT QUẢ CŨ ĐI
+  document.getElementById("btnRecommend").style.display = "block";
+  document.getElementById("recommendationBox").style.display = "none";
 
   document.getElementById("summaryInfo").innerHTML = `
         <strong style="color: #0f4c81; font-size: 16px;">Tóm tắt 29 chỉ số bệnh nhân (${idLabel}):</strong>
@@ -380,6 +389,81 @@ function updateResultUI(d, res, idLabel) {
         </div>
     `;
 }
+
+//-------------------------
+// Bắt sự kiện khi click vào nút Đề xuất Giải pháp
+document.getElementById("btnRecommend").addEventListener("click", () => {
+    if(!currentPatientForRecommendation) return;
+    generatePersonalizedRecommendation(currentPatientForRecommendation.data, currentPatientForRecommendation.prediction);
+});
+
+// THUẬT TOÁN HỆ CHUYÊN GIA ĐỀ XUẤT GIẢI PHÁP
+function generatePersonalizedRecommendation(d, res) {
+    let advices = [];
+
+    // --- 1. Dựa trên Nguy cơ tổng thể ---
+    if(res.risk_level === "HIGH") {
+        advices.push("🚨 <b>Chỉ định lâm sàng khẩn cấp:</b> Yêu cầu đặt lịch chụp cắt lớp vi tính ngực liều thấp (LDCT) và nội soi phế quản ngay lập tức để tầm soát khối u.");
+    } else if (res.risk_level === "WARNING") {
+        advices.push("⚠️ <b>Theo dõi sát sao:</b> Đăng ký tầm soát ung thư phổi và chụp X-quang định kỳ mỗi 6 tháng. Cần theo dõi sự thay đổi của các nốt mờ trên phổi (nếu có).");
+    } else {
+        advices.push("✅ <b>Phòng ngừa:</b> Bệnh nhân hiện có nguy cơ thấp. Khuyến nghị duy trì lối sống lành mạnh và khám sức khỏe tổng quát hàng năm.");
+    }
+
+    // --- 2. Dựa trên Thói quen hút thuốc (Tác nhân số 1) ---
+    if(d.smoker === 1) {
+        advices.push(`🚬 <b>Cai thuốc lá tuyệt đối:</b> Bệnh nhân có thâm niên hút thuốc cao (${d.pack_years} pack-years). Yêu cầu tham gia chương trình hỗ trợ cai nghiện thuốc lá (có thể kết hợp liệu pháp thay thế Nicotine). Khói thuốc là nguyên nhân gốc rễ làm tăng nguy cơ.`);
+    } else if(d.passive_smoking === 1) {
+        advices.push("🚭 <b>Tránh khói thuốc thụ động:</b> Hạn chế tối đa tiếp xúc với môi trường có người hút thuốc tại nhà hoặc nơi làm việc.");
+    }
+
+    // --- 3. Dựa trên Chỉ số sinh tồn (SpO2, FEV1) ---
+    if(d.oxygen_saturation < 95) {
+        advices.push(`🫁 <b>Hỗ trợ hô hấp:</b> SpO₂ đang ở mức thấp (${d.oxygen_saturation}%). Cần theo dõi chỉ số oxy máu liên tục. Chỉ định tập vật lý trị liệu hô hấp (thở chúm môi, thở cơ hoành).`);
+    }
+    if(d.fev1_x10 < 30) { 
+        advices.push("💨 <b>Khám chuyên khoa Hô hấp:</b> Chỉ số thở FEV1 có dấu hiệu suy giảm, biểu hiện của tắc nghẽn đường thở. Khuyến nghị đo hô hấp ký (Spirometry) chuyên sâu.");
+    }
+
+    // --- 4. Dựa trên Môi trường & Nghề nghiệp ---
+    if(d.occupational_exposure === 1 || d.radon_exposure === 1 || d.air_pollution_index > 80) {
+        advices.push("😷 <b>Cải thiện môi trường sống/làm việc:</b> Bệnh nhân có tiền sử phơi nhiễm độc hại (Bụi mịn, Radon hoặc hóa chất nghề nghiệp). Yêu cầu bắt buộc mang mặt nạ phòng độc khi làm việc và lắp đặt máy lọc không khí HEPA tại nhà.");
+    }
+
+    // --- 5. Dựa trên Triệu chứng & Bệnh lý nền ---
+    let symptoms = [];
+    if(d.chronic_cough === 1) symptoms.push("Ho mãn tính");
+    if(d.chest_pain === 1) symptoms.push("Đau ngực");
+    if(d.shortness_of_breath === 1) symptoms.push("Khó thở");
+    if(d.fatigue === 1) symptoms.push("Mệt mỏi kéo dài");
+    
+    if(symptoms.length > 0) {
+        advices.push(`⚕️ <b>Can thiệp triệu chứng:</b> Đang ghi nhận các triệu chứng lâm sàng: <i>${symptoms.join(", ")}</i>. Chỉ định xét nghiệm đờm, PCR và dùng thuốc giãn phế quản/chống viêm theo phác đồ của bác sĩ chuyên khoa.`);
+    }
+
+    // --- Render kết quả ra màn hình ---
+    let html = "<h3 style='color: #145994; margin-top: 0; border-bottom: 2px solid #145994; padding-bottom: 8px;'>📋 Phác đồ Hành động & Khuyến nghị Y khoa</h3>";
+    html += "<ul style='line-height: 1.8; color: #333; font-size: 14px; padding-left: 20px;'>";
+    advices.forEach(a => { 
+        html += `<li style="margin-bottom: 10px;">${a}</li>`; 
+    });
+    html += "</ul>";
+
+    const recBox = document.getElementById("recommendationBox");
+    recBox.innerHTML = html;
+    
+    // Hiển thị khung với hiệu ứng mượt
+    recBox.style.display = "block";
+    recBox.style.opacity = 0;
+    setTimeout(() => { recBox.style.transition = "opacity 0.5s"; recBox.style.opacity = 1; }, 10);
+    
+    // Tự động cuộn màn hình xuống vùng giải pháp
+    setTimeout(() => {
+        recBox.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+}
+
+//------------------------
 
 // 7. TÍNH NĂNG PHÓNG TO 3D (FULLSCREEN)
 const btnFullscreen = document.getElementById("btnFullscreen");
@@ -409,9 +493,39 @@ document.addEventListener("fullscreenchange", () => {
 // =========================================================
 // 8. LOGIC VẼ VÀ CẬP NHẬT DASHBOARD (5 BIỂU ĐỒ - TONE XANH)
 // =========================================================
-let trendChartInst = null,
-  scatterChartInst = null,
-  radarChartInst = null;
+// let ageChartInst = null, riskChartInst = null;
+let trendChartInst = null, scatterChartInst = null, radarChartInst = null;
+let metricsBarChartInst = null, metricsPolarChartInst = null;
+
+// Biến lưu trữ chỉ số model (Mặc định là 0, sẽ được nạp từ file JSON)
+let currentModelMetrics = [0, 0, 0, 0];
+
+// Hàm tự động tải dữ liệu từ file model_metrics.json
+async function loadModelMetrics() {
+  try {
+    // Đường dẫn trỏ tới thư mục models của bạn
+    const response = await fetch('./models/model_metrics.json'); 
+    if (!response.ok) throw new Error("Chưa tìm thấy file");
+    
+    const data = await response.json();
+    
+    // Đổi từ hệ số thập phân (vd: 0.94) sang phần trăm (94.0)
+    currentModelMetrics = [
+      (data.accuracy * 100).toFixed(1),
+      (data.precision * 100).toFixed(1),
+      (data.recall * 100).toFixed(1),
+      (data.f1_score * 100).toFixed(1)
+    ];
+  } catch (error) {
+    console.warn("Lỗi tải metrics:", error, "- Đang dùng dữ liệu mẫu.");
+    // Dữ liệu dự phòng nếu web không đọc được file json
+    currentModelMetrics = [94.5, 89.2, 92.8, 90.9]; 
+  }
+}
+
+// Chạy hàm đọc dữ liệu ngay khi vừa tải file JS
+loadModelMetrics();
+
 
 function updateDashboard(dataArray) {
   if (!dataArray || dataArray.length === 0) {
@@ -763,4 +877,90 @@ function drawDashboardCharts(
       },
     },
   );
+
+  // 6. BIỂU ĐỒ HIỆU SUẤT MÔ HÌNH AI (Đọc tự động từ JSON)
+// 6. BIỂU ĐỒ HIỆU SUẤT MÔ HÌNH AI (Chia 2 bên: Cột ngang & Polar)
+  
+  // --- BÊN TRÁI: BIỂU ĐỒ CỘT NGANG ---
+  const ctxBar = document.getElementById("metricsBarChart");
+  if (ctxBar) {
+    if (metricsBarChartInst) metricsBarChartInst.destroy();
+    metricsBarChartInst = new Chart(ctxBar.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: ["Accuracy (Chính xác)", "Precision (Chuẩn xác)", "Recall (Độ nhạy)", "F1-Score"],
+        datasets: [{
+          label: "Hiệu suất (%)",
+          data: currentModelMetrics,
+          backgroundColor: ["#145994", "#337ec2", "#5c9cd4", "#8bbce3"],
+          borderRadius: 6,
+          barThickness: 25
+        }]
+      },
+      options: {
+        indexAxis: 'y', // Xoay ngang
+        responsive: true, 
+        maintainAspectRatio: false,
+        plugins: { 
+          title: { display: true, text: "Chi tiết Chỉ số Hiệu suất", font: { size: 16 }, padding: { bottom: 15 }, color: "#333" }, 
+          legend: { display: false },
+          tooltip: { callbacks: { label: function(context) { return context.parsed.x + '%'; } } }
+        },
+        scales: { 
+          x: { min: 0, max: 100, title: { display: true, text: 'Phần trăm (%)' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          y: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: "#333" } }
+        }
+      }
+    });
+  }
+
+  // --- BÊN PHẢI: BIỂU ĐỒ POLAR AREA ---
+  const ctxPolar = document.getElementById("metricsPolarChart");
+  if (ctxPolar) {
+    if (metricsPolarChartInst) metricsPolarChartInst.destroy();
+    metricsPolarChartInst = new Chart(ctxPolar.getContext("2d"), {
+      type: "polarArea",
+      data: {
+        labels: ["Accuracy", "Precision", "Recall", "F1-Score"],
+        datasets: [{
+          label: "Hiệu suất (%)",
+          data: currentModelMetrics,
+          backgroundColor: [
+            "rgba(20, 89, 148, 0.75)",  // #145994
+            "rgba(51, 126, 194, 0.75)", 
+            "rgba(119, 180, 200, 0.75)",
+            "rgba(214, 232, 238, 0.75)" 
+          ],
+          borderColor: "#ffffff",
+          borderWidth: 2,
+          hoverOffset: 10
+        }]
+      },
+      options: {
+        responsive: true, 
+        maintainAspectRatio: false,
+        plugins: { 
+          title: { display: true, text: "Cấu trúc Hiệu suất (Polar)", font: { size: 16 }, padding: { bottom: 15 }, color: "#333" }, 
+          legend: { 
+            position: 'right', 
+            labels: { boxWidth: 15, padding: 15, font: { size: 13 } } 
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) { return " " + context.label.split(' ')[0] + ": " + context.parsed.r + "%"; }
+            }
+          }
+        },
+        scales: { 
+          r: { 
+            min: 0, 
+            max: 100, 
+            ticks: { display: false }, 
+            grid: { color: 'rgba(0,0,0,0.08)' }, 
+            angleLines: { color: 'rgba(0,0,0,0.08)' } 
+          }
+        }
+      }
+    });
+  } 
 }

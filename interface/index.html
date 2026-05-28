@@ -185,52 +185,74 @@
                     <div id="canvas-container" class="model-container">
                         <button id="btnFullscreen" class="btn-fullscreen" title="Phóng to toàn màn hình">⛶ Phóng to</button>
                     </div>
+                    
                     <div class="summary-info" id="summaryInfo">
                         <p><i>Vui lòng nhập thông tin hoặc chọn từ danh sách...</i></p>
                     </div>
+                    
                     <div class="prediction-box" id="predictionResult">
                         <h3>Trạng thái: Đang chờ...</h3>
                     </div>
+
+                    <button id="btnRecommend" class="btn-submit" style="display: none; margin-top: 15px; background-color: #2a9d8f; width: 100%;">
+                        💡 Đề xuất Phác đồ Hành động & Giải pháp
+                    </button>
+                    
+                    <div id="recommendationBox" style="display: none; margin-top: 15px; padding: 20px; background: #f0f7fb; border-left: 5px solid #145994; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        </div>
                 </section>
             </main>
         </div>
 
         <div id="tab-dashboard" class="tab-content">
-        <div class="dashboard-grid">
-            <div class="kpi-card" style="border-left-color: #145994;">
-                <h3>Tổng số Bệnh nhân</h3>
-                <div class="kpi-value" style="color: #145994;" id="kpi-total">0</div>
+            <div class="dashboard-grid">
+                <div class="kpi-card" style="border-left-color: #145994;">
+                    <h3>Tổng số Bệnh nhân</h3>
+                    <div class="kpi-value" style="color: #145994;" id="kpi-total">0</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #e74c3c;">
+                    <h3>Cảnh báo Nguy cơ Cao</h3>
+                    <div class="kpi-value" style="color: #e74c3c;" id="kpi-high-risk">0</div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #2ecc71;">
+                    <h3>Tỷ lệ Hút thuốc</h3>
+                    <div class="kpi-value" style="color: #2ecc71;" id="kpi-smoker">0%</div>
+                </div>
             </div>
-            <div class="kpi-card" style="border-left-color: #e74c3c;">
-                <h3>Cảnh báo Nguy cơ Cao</h3>
-                <div class="kpi-value" style="color: #e74c3c;" id="kpi-high-risk">0</div>
-            </div>
-            <div class="kpi-card" style="border-left-color: #2ecc71;">
-                <h3>Tỷ lệ Hút thuốc</h3>
-                <div class="kpi-value" style="color: #2ecc71;" id="kpi-smoker">0%</div>
-            </div>
-        </div>
 
-        <div class="charts-grid">
-            <div class="chart-container">
-                <canvas id="ageChart"></canvas>
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <canvas id="ageChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="riskChart"></canvas>
+                </div>
             </div>
-            <div class="chart-container">
-                <canvas id="riskChart"></canvas>
-            </div>
-        </div>
 
-        <div class="charts-grid" style="margin-top: 20px; grid-template-columns: 1fr;">
-            <div class="chart-container" style="height: 400px;">
-                <canvas id="trendChart"></canvas>
+            <div class="charts-grid" style="margin-top: 20px; grid-template-columns: 1fr;">
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <div class="charts-grid" style="margin-top: 20px; grid-template-columns: 2fr 1fr;">
+                <div class="chart-container" style="height: 450px;">
+                    <canvas id="scatterChart"></canvas>
+                </div>
+                <div class="chart-container" style="height: 450px;">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+
+            <div class="charts-grid" style="margin-top: 20px; grid-template-columns: 2fr 1fr; margin-bottom: 40px;">
+                <div class="chart-container" style="height: 380px; border-left: 5px solid #145994;">
+                    <canvas id="metricsBarChart"></canvas>
+                </div>
+                <div class="chart-container" style="height: 380px; border-left: 5px solid #145994;">
+                    <canvas id="metricsPolarChart"></canvas>
+                </div>
             </div>
         </div>
-
-        <div class="charts-grid" style="margin-top: 20px; grid-template-columns: 1.5fr 1fr; margin-bottom: 40px;">
-            <div class="chart-container" style="height: 450px;"><canvas id="scatterChart"></canvas></div>
-            <div class="chart-container" style="height: 450px;"><canvas id="radarChart"></canvas></div>
-        </div>
-    </div>
         
     </div>
 
