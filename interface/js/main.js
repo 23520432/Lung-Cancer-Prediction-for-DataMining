@@ -17,8 +17,14 @@ let currentDisplayData = [];
 let currentSortCol = "";
 let sortAscending = true;
 
+// Các biến lưu trữ đối tượng Chart.js để có thể xóa và vẽ lại
+let ageChartInst = null;
+let riskChartInst = null;
+
 // 1. KHỞI TẠO HỆ THỐNG
 init3DModel();
+// Vẽ trước Dashboard rỗng (0 dữ liệu) khi vừa vào trang
+setTimeout(() => updateDashboard([]), 500);
 
 // Hàm chuyển Tab (gắn vào window để gọi từ HTML)
 window.switchTab = function (tabId) {
@@ -28,10 +34,15 @@ window.switchTab = function (tabId) {
   document
     .querySelectorAll(".tab-btn")
     .forEach((btn) => btn.classList.remove("active"));
+
   document.getElementById(tabId).classList.add("active");
+
   if (tabId === "tab-list")
     document.getElementById("btn-tab-list").classList.add("active");
-  else document.getElementById("btn-tab-detail").classList.add("active");
+  else if (tabId === "tab-detail")
+    document.getElementById("btn-tab-detail").classList.add("active");
+  else if (tabId === "tab-dashboard")
+    document.getElementById("btn-tab-dashboard").classList.add("active");
 };
 
 // 2. XỬ LÝ THANH TRƯỢT SPO2
@@ -71,8 +82,7 @@ document.getElementById("btnProcessCSV").addEventListener("click", function () {
     complete: async function (results) {
       const data = results.data;
       masterData = [];
-      //const limit = Math.min(data.length, 200);
-      const limit = data.length;
+      const limit = 200;
       document.getElementById("toolbar").style.display = "flex";
 
       for (let i = 0; i < limit; i++) {
@@ -117,11 +127,16 @@ document.getElementById("btnProcessCSV").addEventListener("click", function () {
             prediction: result,
           });
           progressText.innerText = `Đang phân tích: ${i + 1} / ${limit} ca bệnh...`;
-        } catch (err) {}
+        } catch (err) {
+          console.error(err);
+        }
       }
-      progressText.innerText = "Hoàn tất!";
+      progressText.innerText = "Hoàn tất phân tích!";
       currentDisplayData = [...masterData];
       renderTable(currentDisplayData);
+
+      // Cập nhật Dashboard với bộ dữ liệu mới
+      updateDashboard(currentDisplayData);
     },
   });
 });
@@ -175,29 +190,24 @@ function applyUnifiedFilters() {
     if (!searchVal) {
       matchSearch = true; // Nếu ô tìm kiếm trống thì cho qua hết
     } else {
-      // Dịch các con số phân loại ra chữ để tìm kiếm thân thiện hơn
       const genderStr = p.data.gender === 1 ? "nam" : "nữ";
       const coughStr = p.data.chronic_cough === 1 ? "có" : "không";
       let riskStr = "thấp";
       if (p.prediction.risk_level === "HIGH") riskStr = "cao";
       else if (p.prediction.risk_level === "WARNING") riskStr = "cảnh báo";
 
-      // Gộp TOÀN BỘ 29 thuộc tính + ID + Chữ dịch vào thành một đoạn text khổng lồ
       const allRawValues = Object.values(p.data).join(" ");
       const searchString =
         `bn-${p.originalId} ${genderStr} ${coughStr} ${riskStr} ${allRawValues}`.toLowerCase();
 
-      // Nếu đoạn text chứa từ khóa gõ vào -> Hợp lệ
       if (searchString.includes(searchVal)) {
         matchSearch = true;
       }
     }
 
-    // Bệnh nhân phải thỏa mãn CẢ HAI điều kiện mới được hiện lên bảng
     return matchRisk && matchSearch;
   });
 
-  // Nếu đang bấm sắp xếp cột thì vẫn phải giữ nguyên thứ tự sắp xếp
   if (currentSortCol) {
     currentDisplayData = sortPatientArray(
       currentDisplayData,
@@ -206,14 +216,13 @@ function applyUnifiedFilters() {
     );
   }
 
-  // Vẽ lại bảng
   renderTable(currentDisplayData);
+
+  // Vẽ lại Dashboard dựa trên danh sách đã lọc (Tính năng cực hay!)
+  updateDashboard(currentDisplayData);
 }
 
-// Bắt sự kiện khi chọn Nguy cơ
 filterRiskEl.addEventListener("change", applyUnifiedFilters);
-
-// Bắt sự kiện ngay khi người dùng đang gõ phím (Real-time search)
 searchEl.addEventListener("input", applyUnifiedFilters);
 
 document.querySelectorAll("th.sortable").forEach((th) => {
@@ -239,7 +248,6 @@ document.querySelectorAll("th.sortable").forEach((th) => {
 
 // 5. CHUYỂN DỮ LIỆU SANG FORM
 window.loadPatientToForm = function (targetId) {
-  // Dùng thuật toán .find() để quét đúng ID gốc, bất chấp vị trí trong mảng
   const patient = masterData.find((p) => p.originalId === targetId);
   if (!patient) return;
   const d = patient.data;
@@ -280,7 +288,6 @@ window.loadPatientToForm = function (targetId) {
 
   document.getElementById("spo2").value = d.oxygen_saturation;
   document.getElementById("spo2").dispatchEvent(new Event("input"));
-  // Đồng bộ hiển thị 3D cho ca bệnh được chọn
   updateLungVisuals(d.oxygen_saturation, d.pack_years);
   window.switchTab("tab-detail");
   updateResultUI(d, res, patient.originalId);
@@ -336,7 +343,6 @@ document
     }
   });
 
-// Hàm dùng chung vẽ kết quả (Đã khôi phục đủ 29 chỉ số)
 function updateResultUI(d, res, idLabel) {
   const resultBox = document.getElementById("predictionResult");
   if (res.risk_level === "HIGH") {
@@ -381,31 +387,380 @@ const canvasContainer = document.getElementById("canvas-container");
 
 btnFullscreen.addEventListener("click", () => {
   if (!document.fullscreenElement) {
-    // Yêu cầu phóng to (Hỗ trợ nhiều trình duyệt)
-    if (canvasContainer.requestFullscreen) {
-      canvasContainer.requestFullscreen();
-    } else if (canvasContainer.webkitRequestFullscreen) {
-      /* Safari */
+    if (canvasContainer.requestFullscreen) canvasContainer.requestFullscreen();
+    else if (canvasContainer.webkitRequestFullscreen)
       canvasContainer.webkitRequestFullscreen();
-    }
   } else {
-    // Yêu cầu thu nhỏ
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      /* Safari */
-      document.webkitExitFullscreen();
-    }
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
   }
 });
 
-// Lắng nghe sự kiện ấn phím ESC của trình duyệt để đổi lại chữ trên nút
 document.addEventListener("fullscreenchange", () => {
   if (document.fullscreenElement) {
     btnFullscreen.innerHTML = "🗗 Thu nhỏ";
-    btnFullscreen.style.background = "rgba(0, 0, 0, 0.5)"; // Đổi nền tối cho dễ nhìn
+    btnFullscreen.style.background = "rgba(0, 0, 0, 0.5)";
   } else {
     btnFullscreen.innerHTML = "⛶ Phóng to";
     btnFullscreen.style.background = "rgba(255, 255, 255, 0.15)";
   }
 });
+
+// =========================================================
+// 8. LOGIC VẼ VÀ CẬP NHẬT DASHBOARD (5 BIỂU ĐỒ - TONE XANH)
+// =========================================================
+let trendChartInst = null,
+  scatterChartInst = null,
+  radarChartInst = null;
+
+function updateDashboard(dataArray) {
+  if (!dataArray || dataArray.length === 0) {
+    document.getElementById("kpi-total").innerText = "0";
+    document.getElementById("kpi-high-risk").innerText = "0";
+    document.getElementById("kpi-smoker").innerText = "0%";
+    drawDashboardCharts(
+      [0, 0, 0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0],
+      [],
+      [],
+      [0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0],
+    );
+    return;
+  }
+
+  const total = dataArray.length;
+  let highRiskCount = 0,
+    warningCount = 0,
+    lowRiskCount = 0,
+    smokerCount = 0;
+  let ageGroups = [0, 0, 0, 0, 0];
+  let trendData = {
+    spo2Sum: [0, 0, 0, 0, 0],
+    crpSum: [0, 0, 0, 0, 0],
+    count: [0, 0, 0, 0, 0],
+  };
+  let scatterDataHigh = [],
+    scatterDataLow = [];
+  let radarHigh = { bmi: 0, packYears: 0, crp: 0, fev1: 0, age: 0, count: 0 };
+  let radarLow = { bmi: 0, packYears: 0, crp: 0, fev1: 0, age: 0, count: 0 };
+
+  dataArray.forEach((p) => {
+    const d = p.data;
+    const res = p.prediction;
+    const isHighRisk =
+      res.risk_level === "HIGH" || res.risk_level === "WARNING";
+
+    if (res.risk_level === "HIGH") highRiskCount++;
+    else if (res.risk_level === "WARNING") warningCount++;
+    else lowRiskCount++;
+
+    if (d.smoker === 1) smokerCount++;
+
+    let ageIdx = 0;
+    if (d.age < 40) ageIdx = 0;
+    else if (d.age <= 50) ageIdx = 1;
+    else if (d.age <= 60) ageIdx = 2;
+    else if (d.age <= 70) ageIdx = 3;
+    else ageIdx = 4;
+
+    ageGroups[ageIdx]++;
+    trendData.spo2Sum[ageIdx] += d.oxygen_saturation;
+    trendData.crpSum[ageIdx] += d.crp_level;
+    trendData.count[ageIdx]++;
+
+    const scatterPoint = { x: d.pack_years, y: d.oxygen_saturation };
+    if (isHighRisk) scatterDataHigh.push(scatterPoint);
+    else scatterDataLow.push(scatterPoint);
+
+    if (isHighRisk) {
+      radarHigh.bmi += d.bmi;
+      radarHigh.packYears += d.pack_years;
+      radarHigh.crp += d.crp_level;
+      radarHigh.fev1 += d.fev1_x10;
+      radarHigh.age += d.age;
+      radarHigh.count++;
+    } else {
+      radarLow.bmi += d.bmi;
+      radarLow.packYears += d.pack_years;
+      radarLow.crp += d.crp_level;
+      radarLow.fev1 += d.fev1_x10;
+      radarLow.age += d.age;
+      radarLow.count++;
+    }
+  });
+
+  const avgSpO2 = trendData.spo2Sum.map((sum, i) =>
+    trendData.count[i] ? (sum / trendData.count[i]).toFixed(1) : 0,
+  );
+  const avgCRP = trendData.crpSum.map((sum, i) =>
+    trendData.count[i] ? (sum / trendData.count[i]).toFixed(1) : 0,
+  );
+  const avgRadarHigh = radarHigh.count
+    ? [
+        radarHigh.age / radarHigh.count,
+        radarHigh.packYears / radarHigh.count,
+        radarHigh.bmi / radarHigh.count,
+        radarHigh.fev1 / radarHigh.count,
+        (radarHigh.crp / radarHigh.count) * 10,
+      ]
+    : [0, 0, 0, 0, 0];
+  const avgRadarLow = radarLow.count
+    ? [
+        radarLow.age / radarLow.count,
+        radarLow.packYears / radarLow.count,
+        radarLow.bmi / radarLow.count,
+        radarLow.fev1 / radarLow.count,
+        (radarLow.crp / radarLow.count) * 10,
+      ]
+    : [0, 0, 0, 0, 0];
+
+  document.getElementById("kpi-total").innerText = total;
+  document.getElementById("kpi-high-risk").innerText = highRiskCount;
+  document.getElementById("kpi-smoker").innerText =
+    Math.round((smokerCount / total) * 100) + "%";
+
+  drawDashboardCharts(
+    ageGroups,
+    [highRiskCount, warningCount, lowRiskCount],
+    avgSpO2,
+    avgCRP,
+    scatterDataHigh,
+    scatterDataLow,
+    avgRadarHigh,
+    avgRadarLow,
+  );
+}
+
+function drawDashboardCharts(
+  ageData,
+  riskData,
+  avgSpO2,
+  avgCRP,
+  scatterHigh,
+  scatterLow,
+  radarHigh,
+  radarLow,
+) {
+  const ageLabels = ["< 40 tuổi", "40 - 50", "51 - 60", "61 - 70", "> 70 tuổi"];
+
+  // 1. Biểu đồ Tuổi (Bar)
+  if (ageChartInst) ageChartInst.destroy();
+  ageChartInst = new Chart(
+    document.getElementById("ageChart").getContext("2d"),
+    {
+      type: "bar",
+      data: {
+        labels: ageLabels,
+        datasets: [
+          {
+            label: "Số lượng bệnh nhân",
+            data: ageData,
+            backgroundColor: [
+              "#8bbce3",
+              "#5c9cd4",
+              "#337ec2",
+              "#145994",
+              "#0a3359",
+            ],
+            borderRadius: 6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: "Phân bố độ tuổi", font: { size: 16 } },
+          legend: { display: false },
+        },
+      },
+    },
+  );
+
+  // 2. Biểu đồ Nguy cơ (Doughnut) - Màu của bạn
+  if (riskChartInst) riskChartInst.destroy();
+  riskChartInst = new Chart(
+    document.getElementById("riskChart").getContext("2d"),
+    {
+      type: "doughnut",
+      data: {
+        labels: ["Nguy cơ Cao", "Cảnh báo", "Nguy cơ Thấp"],
+        datasets: [
+          {
+            data: riskData,
+            backgroundColor: ["#02457A", "#77b4c8", "#D6E8EE"], // Giữ nguyên màu bạn chọn
+            borderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: "Phân loại Nguy cơ",
+            font: { size: 16 },
+          },
+        },
+        cutout: "65%",
+      },
+    },
+  );
+
+  // 3. BIỂU ĐỒ TREND TRỤC KÉP (Line + Bar)
+  if (trendChartInst) trendChartInst.destroy();
+  trendChartInst = new Chart(
+    document.getElementById("trendChart").getContext("2d"),
+    {
+      type: "line",
+      data: {
+        labels: ageLabels,
+        datasets: [
+          {
+            type: "line",
+            label: "SpO₂ Trung bình (%)",
+            data: avgSpO2,
+            borderColor: "#02457A",
+            backgroundColor: "#02457A",
+            borderWidth: 3,
+            tension: 0.4,
+            yAxisID: "y",
+          },
+          {
+            type: "bar",
+            label: "Mức độ Viêm (CRP)",
+            data: avgCRP,
+            backgroundColor: "rgba(119, 180, 200, 0.7)",
+            borderRadius: 4,
+            yAxisID: "y1",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: "Suy giảm chức năng Hô hấp theo Tuổi tác",
+            font: { size: 16 },
+          },
+        },
+        scales: {
+          y: {
+            type: "linear",
+            display: true,
+            position: "left",
+            min: 80,
+            max: 100,
+            title: { display: true, text: "SpO₂ (%)" },
+          },
+          y1: {
+            type: "linear",
+            display: true,
+            position: "right",
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "Chỉ số CRP" },
+          },
+        },
+      },
+    },
+  );
+
+  // 4. BIỂU ĐỒ PHÂN TÁN SCATTER (Pack Years vs SpO2)
+  if (scatterChartInst) scatterChartInst.destroy();
+  scatterChartInst = new Chart(
+    document.getElementById("scatterChart").getContext("2d"),
+    {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "Nguy cơ Cao",
+            data: scatterHigh,
+            backgroundColor: "rgba(2, 69, 122, 0.7)",
+            pointRadius: 5,
+          }, // Tone #02457A
+          {
+            label: "Nguy cơ Thấp",
+            data: scatterLow,
+            backgroundColor: "rgba(119, 180, 200, 0.8)",
+            pointRadius: 4,
+          }, // Tone #77b4c8
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: "Tương quan Hút thuốc (Pack Years) và SpO₂",
+            font: { size: 16 },
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: "Thâm niên hút thuốc (Pack Years)" },
+          },
+          y: { title: { display: true, text: "Nồng độ Oxy máu (SpO₂)" } },
+        },
+      },
+    },
+  );
+
+  // 5. BIỂU ĐỒ RADAR (Hồ sơ Y khoa đa chiều)
+  if (radarChartInst) radarChartInst.destroy();
+  radarChartInst = new Chart(
+    document.getElementById("radarChart").getContext("2d"),
+    {
+      type: "radar",
+      data: {
+        labels: [
+          "Độ Tuổi",
+          "Thâm niên Hút thuốc",
+          "Chỉ số BMI",
+          "Khí dung FEV1",
+          "Độ viêm CRP (x10)",
+        ],
+        datasets: [
+          {
+            label: "Hồ sơ nhóm Nguy cơ Cao",
+            data: radarHigh,
+            backgroundColor: "rgba(2, 69, 122, 0.2)",
+            borderColor: "#02457A",
+            pointBackgroundColor: "#02457A",
+            borderWidth: 2,
+          },
+          {
+            label: "Hồ sơ nhóm Bình thường",
+            data: radarLow,
+            backgroundColor: "rgba(119, 180, 200, 0.2)",
+            borderColor: "#77b4c8",
+            pointBackgroundColor: "#77b4c8",
+            borderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: "So sánh Chỉ số Lâm sàng trung bình",
+            font: { size: 16 },
+          },
+          legend: { position: "bottom" },
+        },
+        scales: {
+          r: { beginAtZero: true, angleLines: { color: "rgba(0,0,0,0.1)" } },
+        },
+      },
+    },
+  );
+}
